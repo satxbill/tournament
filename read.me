@@ -1,0 +1,26 @@
+Tournament project read.me file
+
+Files included with this project
+
+tournament.sql 		contains SQL needed to set up the PostgresQL database 'tournament' used for this project
+tournament.py		contains a set of functions that provide access to the tournament database
+tournament_test.py	contains a sample client program used to test the functions provided in 'tournament.py'
+
+
+Steps to run the tournament project code:
+
+1.  You'll need an environment with the PostgresQL database and Pyton libraries installed. You will also need
+    the Python library used to access PostgresQL databases: Psycopg2. The program was developed and tested using 
+    Vagrant and Virtual Box software, instructions for installing these products are readily available on the internet.
+
+    Psycopg2 Tutorial:  https://wiki.postgresql.org/wiki/Psycopg2_Tutorial
+    Vagrant:			https://www.vagrantup.com/
+    Virtual Box			https://www.virtualbox.org/
+
+2.  Use the SQL contained in tournament.sql to create the database and tables needed by the project
+
+3.  Copy tournament.py and tournament_test.py to a directory on the system you've created using Vagrant
+
+4.  Run 'tournament_test.py' from the command line on your Vagrant instance from the directory where you copied the 
+	tournament.py and tournament_test.py Python files
+
