@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# 
+#
 # tournament.py -- implementation of a Swiss-system tournament
 #
 
@@ -10,7 +10,6 @@ import bleach
 def connect():
     """Connect to the PostgreSQL database.  Returns a database connection."""
     return psycopg2.connect("dbname=tournament")
-
 
 
 def deleteMatches():
@@ -27,14 +26,13 @@ def deleteMatches():
 #
 # reset standings table so players have zero wins and zero matches
 #
-    c.execute("UPDATE standings SET wins = 0, num_matches = 0;")
+#    c.execute("UPDATE standings SET wins = 0, num_matches = 0;")
 
 #
-# commit and close DB 
+# commit and close DB
 #
     DB.commit()
     DB.close()
-
 
 
 def deletePlayers():
@@ -48,7 +46,7 @@ def deletePlayers():
 #
 # delete all rows from standings and players
 #
-    c.execute("DELETE FROM standings;")
+#    c.execute("DELETE FROM standings;")
     c.execute("DELETE FROM players;")
 
 #
@@ -56,7 +54,6 @@ def deletePlayers():
 #
     DB.commit()
     DB.close()
-
 
 
 def countPlayers():
@@ -70,22 +67,20 @@ def countPlayers():
 # count the players (well, count # rows in players table)
 #
     c.execute("SELECT COUNT(player_id) AS n from players;")
-    #c.execute("SELECT * from players;")
-    row = c.fetchone()   
+    row = c.fetchone()
 #
-# close DB 
+# close DB
 #
     DB.close()
     return row[0]
 
 
-
 def registerPlayer(name):
     """Adds a player to the tournament database.
-  
+
     The database assigns a unique serial id number for the player.  (This
     should be handled by your SQL database schema, not in your Python code.)
-  
+
     Args:
       name: the player's full name (need not be unique).
     """
@@ -102,30 +97,16 @@ def registerPlayer(name):
     # Insert the new player into the db
     #
     c.execute("INSERT INTO players (name) VALUES (%s)", (c_name,))
-    #
-    # get the player_id for the this new player so we can create a row for this player in the 
-    # standings table
-    #
-    c.execute("SELECT currval(pg_get_serial_sequence('players', 'player_id'));")
-    row = c.fetchone()
-    id = row[0]
-    #
-    # create entry in the standings table for the new player
-    #
-    c.execute("INSERT INTO standings (player_id, wins, num_matches) VALUES (%s, 0, 0)", (id,)) 
-    #
-    # commit and close DB 
-    #
+
     DB.commit()
     DB.close()
-
 
 
 def playerStandings():
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place,
+    or a player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -142,15 +123,18 @@ def playerStandings():
     #
     # get the standings
     #
-    c.execute('''SELECT players.player_id, 
-       players.name,
-       standings.wins,
-       standings.num_matches
-    FROM players JOIN standings
-    ON players.player_id = standings.player_id
-    ORDER BY standings.wins DESC;''')
+    c.execute('''SELECT players.player_id,
+                    players.name,
+                    v_wins.wins,
+                    v_losses.losses + v_wins.wins as num_matches
+                        FROM players, v_wins, v_losses
+                        WHERE (players.player_id = v_wins.player_id) AND
+                        (players.player_id = v_losses.player_id)
+                    ORDER BY v_wins.wins DESC;''')
+
     rows = c.fetchall()
     return rows
+
 
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
@@ -173,30 +157,24 @@ def reportMatch(winner, loser):
     # Insert the winner and loser into the matches table
     # the DB will assign a match id for each row
     #
-    c.execute("INSERT INTO matches (winner, loser) VALUES (%s, %s)", (c_winner,c_loser,))
+    c.execute("INSERT INTO matches (winner, loser) VALUES (%s, %s)",
+              (c_winner, c_loser,))
+
     #
-    # update the standings with these results
-    # 
-    c.execute('''UPDATE standings SET wins = wins +1, num_matches = num_matches +1 
-               WHERE player_id = %s''' , (c_winner,)) 
-    c.execute('''UPDATE standings SET num_matches = num_matches +1
-               WHERE player_id = %s''' , (c_loser,))
-    #
-    # commit and close DB 
+    # commit and close DB
     #
     DB.commit()
     DB.close()
 
 
-
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
-  
+
     Assuming that there are an even number of players registered, each player
     appears exactly once in the pairings.  Each player is paired with another
-    player with an equal or nearly-equal win record, that is, a player adjacent
-    to him or her in the standings.
-  
+    player with an equal or nearly-equal win record, that is, a player
+    adjacent to him or her in the standings.
+
     Returns:
       A list of tuples, each of which contains (id1, name1, id2, name2)
         id1: the first player's unique id
@@ -216,12 +194,12 @@ def swissPairings():
     #
     # get what we need from the DB
     #
-    c.execute('''SELECT players.player_id, 
-           players.name,
-           standings.wins
-        FROM players JOIN standings
-        ON players.player_id = standings.player_id
-        ORDER BY standings.wins DESC;''')
+    c.execute('''SELECT players.player_id,
+                    players.name,
+                    v_wins.wins
+                        FROM players, v_wins
+                        WHERE (players.player_id = v_wins.player_id)
+                    ORDER BY v_wins.wins DESC;''')
     #
     # let's see what we got from the DB
     #
@@ -233,11 +211,11 @@ def swissPairings():
         i = 0
         while i in range(len(rows) - 1):
             #
-            # put the pairings together, we sorted by wins in our query so 
+            # put the pairings together, we sorted by wins in our query so
             # all we need to do is put the ordered results together in pairs:
             #    1 and 2
             #    3 and 4
-            #    etc... 
+            #    etc...
             # until all players are paired.
             #
             pairing = (rows[i][0], rows[i][1], rows[i+1][0], rows[i+1][1])
@@ -246,7 +224,7 @@ def swissPairings():
             #
             pairings.append(pairing)
             #
-            # bump our loop index by 2 to get to the next 2 players to be paired
+            # bump loop index by 2 to get to the next 2 players to be paired
             #
             i = i + 2
     else:
@@ -257,14 +235,3 @@ def swissPairings():
             "Odd number of players {n}".format(n=len(rows)))
 
     return pairings
-
-
-
-
-
-
-
-
-
-
-
